@@ -84,11 +84,14 @@ kb_get.add(KeyboardButton('/for_day'))
 kb_get.add(KeyboardButton('/for_week'))
 
 
-async def get_data_graphic(column_name, message):
+async def get_data_graphic(column_name, message, state):
     url = ""
+    data = await state.get_data()
+    title = data['title']
+    ylabel = "°C" if title == "temperature" else "%"
     if message.text == "/for_hour":
         url = URL.format("hour")
-        plot = Graphic(date_format="%H:%M")
+        plot = Graphic(date_format="%H:%M", title=title, ylabel=ylabel, xlabel="date" )
     if message.text == "/for_day":
         url = URL.format("day")
         plot = Graphic(date_format="%H:%m")
@@ -201,7 +204,9 @@ async def login_user(message: types.Message, state: FSMContext):
                 cursor.execute(f"UPDATE telegram_users SET api_token = '{get['auth_token']}', is_active = True WHERE user_id = {message.from_user.id}")
                 engine.commit()
                 engine.close()
-                await message.answer(text = "SUCCESS")              
+                await message.answer(text = "SUCCESS")  
+            elif resp.status == 401:
+                await message.answer(text = "Wrong login or password")      
             else:
                 error = await resp.json()
                 text = ""
@@ -303,7 +308,9 @@ async def current_data():
 async def activate_stat(message: types.Message):
     state = dp.current_state(user=message.from_user.id)
     await ClientStatesGroup.get_dtth22_data.set()
-    await state.update_data(type=message.text)
+    title = "temperature" if message.text == "/statistic_temperature" else "humidity"
+    await state.update_data(title=title)
+    
     await message.answer(
         text="Choose interval to view graphic", reply_markup=kb_get)
 
@@ -312,10 +319,10 @@ async def activate_stat(message: types.Message):
 async def send_data_graphic(message: types.Message, state: FSMContext):
     if (message.text in command_for_get_graphic):
         data = await state.get_data()
-        column_name = data['type'][11:]
-        status, data = await get_data_graphic(column_name, message)
+        column_name = data['title']
+        status, data = await get_data_graphic(column_name, message, state)
         if status == 200:
-            await message.answer_photo(data, reply_markup=kb_get)
+            await message.answer_photo(data, reply_markup=kb_get_data)
         else:
             await message.answer(data)   
     else:

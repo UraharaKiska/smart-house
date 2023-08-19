@@ -28,10 +28,9 @@ class CustomPermission(BasePermission):
             user = User.objects.get(username=request.user)
         except Exception as ex:
             return False
-        if user.groups.filter(Q(name='family') | Q(name="manager") | Q(name="admin")):
+        if user.groups.filter(Q(name='family') | Q(name="manager")) or user.is_staff:
             return True
         return False
-    
     
     def has_object_permission(self, request, view, obj):
         return True
