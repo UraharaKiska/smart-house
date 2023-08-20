@@ -1,92 +1,234 @@
-# smart-house
+<p>Данный проект состоит из 4 микросервисов:<br>
+1 - микроконтроллер с wi-fi модулем и соединенным датчиком температуры и влажности отправляет даннын на сервер по протоколу<br>
+MQTP и записываются в очередь через RabbitMQ<br>
+2 - приложение на сервере, которое обрабатывает данные с очереди и записывает в базу данных "smart_house"<br>
+3 - API сайт подключенный к базе данных "smart_house" для получения данных о датчиках из вне<br>
+4 - телеграмм бот для взаимодействия с API сайта<br>
+</p>
+
+<p>Стек технологий:<br>
+-для программирования датчика используется C++ на ArduinoIDE <br>
+-RabbitMQ для создания очередей<br>
+-PostgreSQL база данных<br>
+-Django и Django Rest Framework для содания сайта с API<br>
+-Aiogram для создания telegram bot<br>
+-Остальные python библиотеки: Matplotlib, Pika, asyncio, psycopg2, aiohttp, pydantic и тд.<br>
+</p>
+<h2>Микроконтроллер esp8266 с датчиком dhtt22</h2>
+
+<code><pre>
+#include &ltDHT.h&gt; // для работы с датчиком Dht22  
+ #include &ltArduinoJson.h&gt; // для преобразования данных в JSON
+#include &ltNTPClient.h&gt; // для получения текущего времени по протоколу NTP
+#include &ltESP8266WiFi.h&gt; // необходим для работы микроконтроллера esp8266 и подключения к wi-fi
+#include &ltPubSubClient.h&gt; // для отправки данных на сервер
+#include &ltWiFiUdp.h&gt; // необходим для подключения по протоколу NTP
+</code>
+<code>
+#define DHTPIN 5
+#define DHTTYPE DHT22
+
+    DHT dht(DHTPIN, DHTTYPE);
+    d
+    // Update these with values suitable for your network.
+    const char* ssid = "wifi name";
+    const char* password = "wifi password";
+    const char* mqtt_server = "id adress or dns";
+    const char* mqtt_user = "rabbit username";
+    const char* mqtt_pass= "rabbit user password";
+
+    const int mq2pin = A0; //the MQ2 analog input pin
 
 
 
-## Getting started
+    WiFiClient espClient;
+    PubSubClient client(espClient);
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+    StaticJsonBuffer<300> JSONbuffer;
+    JsonObject& JSONencoder = JSONbuffer.createObject();
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+    WiFiUDP ntpUDP;
+    NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
-## Add your files
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/kedziroslayer/smart-house.git
-git branch -M main
-git push -uf origin main
-```
+    void setup_wifi() { // // Подключение к Wi-fi
+      WiFi.begin(ssid, password);
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+      }
+      Serial.println("WiFi connected");
+      Serial.println("IP address: ");
+      Serial.println(WiFi.localIP());
+    }
 
-## Integrate with your tools
+    void reconnect() {  //  подключенние к RabbitMQ
+      // Loop until we're reconnected
+      Serial.println("In reconnect...");
+      while (!client.connected()) {
+        Serial.print("Attempting MQTT connection...");
+        // Attempt to connect
+        if (client.connect("Arduino_Gas", mqtt_user, mqtt_pass)) {
+          Serial.println("connected");
+        } else {
+          Serial.print("failed, rc=");
+          Serial.print(client.state());
+          Serial.println(" try again in 5 seconds");
+          delay(5000);
+        }
+      }
+    }
 
-- [ ] [Set up project integrations](https://gitlab.com/kedziroslayer/smart-house/-/settings/integrations)
+    void setup() {
+      pinMode(BUILTIN_LED, OUTPUT);
+      Serial.begin(115200);
+      setup_wifi();
+      client.setServer(mqtt_server, 1883);
+      dht.begin();
+    }
 
-## Collaborate with your team
+    void loop() {
+      timeClient.begin();
+      timeClient.setTimeOffset(10800);
+      char msg[8];
+      if (!client.connected()) {
+        reconnect();
+      }
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+      timeClient.update();
 
-## Test and Deploy
 
-Use the built-in continuous integration in GitLab.
+      float humidity = dht.readHumidity();
+      // Read temperature as Celsius (the default)
+      float temperature = dht.readTemperature();
+      // Read temperature as Fahrenheit (isFahrenheit = true)
+      float fahrenheit = dht.readTemperature(true);
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+      // Check if any reads failed and exit early (to try again).
+      if (isnan(humidity) || isnan(temperature) || isnan(fahrenheit)) {
+        Serial.println("Failed to read from DHT sensor!");
+        return;
+      }
+      // Compute heat index in Celsius (isFahreheit = false)
+      float hic = dht.computeHeatIndex(temperature, humidity, false);
 
-***
 
-# Editing this README
+      time_t epochTime = timeClient.getEpochTime();
+      String formattedTime = timeClient.getFormattedTime();
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+      //Get a time structure
+      struct tm *ptm = gmtime ((time_t *)&epochTime);
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+      int monthDay = ptm->tm_mday;
+      int currentMonth = ptm->tm_mon+1;
+      int currentYear = ptm->tm_year+1900;
 
-## Name
-Choose a self-explaining name for your project.
+      //Print complete date:
+      String currentDate = String(currentYear) + "-" + String(currentMonth) + "-" + String(monthDay) + " " + formattedTime;
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+      JSONencoder["device"] = "esp8632_dht22";
+      JSONencoder["temperature"] = temperature;
+      JSONencoder["humidity"] = humidity;
+      JSONencoder["heatindex"] = hic;
+      JSONencoder["date_create"] = currentDate;
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+      char JSONmessageBuffer[150];
+      JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+      client.publish("dht22", JSONmessageBuffer);
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+      Serial.println(JSONmessageBuffer);
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+      digitalWrite(BUILTIN_LED, LOW);
+      delay(500);
+      digitalWrite(BUILTIN_LED, HIGH);  // turn on LED with voltage HIGH
+      delay(4500);
+    }
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+</code></pre>
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+<h2> Smart House API</h2>
+<p>
+  Для получения данных датчика dht22 из API необходимо в GET запросе добавить токен авторизации.<br>
+  <pre>
+    <code>
+      async with aiohttp.ClientSession() as session:
+            async with session.get(URL_LOGOUT, headers={'Authorization': f'Token {token}'}) as resp:
+    </code>
+  </pre>
+  <p class="url-get_dht22">
+    <span>URl для запросов<br></span>
+  -http://127.0.0.1:8000/api/v1/dht22/current/ - получение данных за последние 5 минут<br>
+  -http://127.0.0.1:8000/api/v1/dht22/hour/ - получение данных за последний час<br>
+  -http://127.0.0.1:8000/api/v1/dht22/day/ - получение данных за последние сутки<br>
+  -http://127.0.0.1:8000/api/v1/dht22/week/ - получение данных за последнюю неделю<br> 
+  </p>
+  Обращаться к API могут только пользователи групп "is_staff", "family", "manager". 
+  Для этого переопределен класс BasePermission в приложении "dht22". 
+  <pre><code>
+  class CustomPermission(BasePermission):
+    def has_permission(self, request, view):
+        try:
+            user = User.objects.get(username=request.user)
+        except Exception as ex:
+            return False
+        if user.groups.filter(Q(name='family') | Q(name="manager")) or user.is_staff:
+            return True
+        return False
+    def has_object_permission(self, request, view, obj):
+        return True  
+  </code>
+</pre>
+  Для регистрации на сайте используется DRF и djoiser для авторизации по токену.<br>
+  -http://127.0.0.1:8000/api/v1/auth/users/ - url для регистрации<br>
+  -http://127.0.0.1:8000/auth/token/login/ - url для авторизации<br>
+  -http://127.0.0.1:8000/auth/token/logout/ - url для деавторизации<br>
+</p>
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+<p>
+  Создавать группы и добавлять пользователей в группы могут только пользователи групп "is_staff" и "manager".
+  Для этих целей переопределен класс BasePermission в приложении "groups":<br>
+  <pre>
+    <code>
+      class IsManagerOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        try:
+            user = User.objects.get(username=request.user)
+        except Exception as ex:
+            return False
+        if user.groups.filter(name='manager') or user.is_staff == True:
+            return True
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        return True
+    </code>
+  </pre>
+</p>
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+<h2>Telegram bot</h2>
+<p >Чтобы начать пользоваться ботом, для начала необходимо зарегестрироваться и(или) войти в аккаунт:<br>
+-/sigup для регистрации<br>
+-/login для авторизации<br>
+-/logout для выхода из аккаунта<br>
+</p>
 
-## License
-For open source projects, say how it is licensed.
+<p>Теперь, если у вас есть достаточно прав, то вы можете отслеживать показания с датчика dht22</p>
+<p>Для того чтобы узнать текущкю температуру или влажность необходимо отправить команду "/current_th",
+  и вы получите ответ:<br>
+  <img class="current_th" src = "readme_static/current_th.png">
+ </p>
+ <p>Также вы можете отслеживать изменение температуры или влажности воздуха в виде графика, введя команды 
+  "/statistic_temperature" или "/statistic_humidity" соответсвенно, после этого необходимо выбрать интервал для получения данных:<br>
+  /for_hour - за последний час<br>
+  /for_day - за последние сутки<br>
+  /for_week - -а последнюю неделю<br>
+  
+<img class="statistic_temperature" src="readme_static/stastic_temperature.jpg">
+<br>
+<img class="statistic_humidity" src="readme_static/statistic_humidity.jpg">
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+</p>
