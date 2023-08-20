@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import aiohttp
-sys.path.append('/home/gregorok/mikrohui/server/services')
+sys.path.append('/home/gregorok/mikrohui/server')
 from config import API_TOKEN_BOT
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
@@ -12,7 +12,6 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 import aioschedule
 import requests
 from graphik import Graphic
-from models import Dht22
 from pydantic import ValidationError
 import json
 import dateutil.parser

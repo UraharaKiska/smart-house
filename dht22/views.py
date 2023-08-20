@@ -5,7 +5,6 @@ from .models import Dht22
 from .serializers import *
 from django.utils import timezone
 import datetime
-from services import models
 from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponse
 from rest_framework.authentication import TokenAuthentication
