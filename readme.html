@@ -1,8 +1,8 @@
 <p>Данный проект состоит из 4 микросервисов:<br>
-1 - микроконтроллер с wi-fi модулем и соединенным датчиком температуры и влажности отправляет даннын на сервер по протоколу<br>
+1 - микроконтроллер с wi-fi модулем и соединенным датчиком температуры и влажности отправляет даннын на сервер по протоколу
 MQTP и записываются в очередь через RabbitMQ<br>
-2 - приложение на сервере, которое обрабатывает данные с очереди и записывает в базу данных "smart_house"<br>
-3 - API сайт подключенный к базе данных "smart_house" для получения данных о датчиках из вне<br>
+2 - приложение на сервере, которое обрабатывает данные с очереди и записывает в базу данных "smart_house"(папка "service")<br>
+3 - API сайт подключенный к базе данных "smart_house"<br>
 4 - телеграмм бот для взаимодействия с API сайта<br>
 </p>
 
@@ -16,7 +16,6 @@ MQTP и записываются в очередь через RabbitMQ<br>
 -Остальные python библиотеки: Matplotlib, Pika, asyncio, psycopg2, aiohttp, pydantic и тд.<br>
 </p>
 <h2>Микроконтроллер esp8266 с датчиком dhtt22</h2>
-
 <code><pre>
   #include &ltDHT.h&gt; // для работы с датчиком Dht22  
   #include &ltArduinoJson.h&gt;  // для преобразования данных в JSON
@@ -24,13 +23,11 @@ MQTP и записываются в очередь через RabbitMQ<br>
   #include &ltESP8266WiFi.h&gt; // необходим для работы микроконтроллера esp8266 и подключения к wi-fi
   #include &ltPubSubClient.h&gt; // для отправки данных на сервер
   #include &ltWiFiUdp.h&gt; // необходим для подключения по протоколу NTP
-  </code>
-<code>
+    
     #define DHTPIN 5
     #define DHTTYPE DHT22
     
     DHT dht(DHTPIN, DHTTYPE);
-    d
     // Update these with values suitable for your network.
     const char* ssid = "wifi name";
     const char* password = "wifi password";

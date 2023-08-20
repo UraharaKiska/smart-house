@@ -1,8 +1,8 @@
 <p>Данный проект состоит из 4 микросервисов:<br>
-1 - микроконтроллер с wi-fi модулем и соединенным датчиком температуры и влажности отправляет даннын на сервер по протоколу<br>
+1 - микроконтроллер с wi-fi модулем и соединенным датчиком температуры и влажности отправляет даннын на сервер по протоколу
 MQTP и записываются в очередь через RabbitMQ<br>
-2 - приложение на сервере, которое обрабатывает данные с очереди и записывает в базу данных "smart_house"<br>
-3 - API сайт подключенный к базе данных "smart_house" для получения данных о датчиках из вне<br>
+2 - приложение на сервере, которое обрабатывает данные с очереди и записывает в базу данных "smart_house"(папка "service")<br>
+3 - API сайт подключенный к базе данных "smart_house"<br>
 4 - телеграмм бот для взаимодействия с API сайта<br>
 </p>
 
@@ -15,43 +15,40 @@ MQTP и записываются в очередь через RabbitMQ<br>
 -Остальные python библиотеки: Matplotlib, Pika, asyncio, psycopg2, aiohttp, pydantic и тд.<br>
 </p>
 <h2>Микроконтроллер esp8266 с датчиком dhtt22</h2>
-
 <code><pre>
-#include &ltDHT.h&gt; // для работы с датчиком Dht22  
- #include &ltArduinoJson.h&gt; // для преобразования данных в JSON
-#include &ltNTPClient.h&gt; // для получения текущего времени по протоколу NTP
-#include &ltESP8266WiFi.h&gt; // необходим для работы микроконтроллера esp8266 и подключения к wi-fi
-#include &ltPubSubClient.h&gt; // для отправки данных на сервер
-#include &ltWiFiUdp.h&gt; // необходим для подключения по протоколу NTP
-</code>
-<code>
-#define DHTPIN 5
-#define DHTTYPE DHT22
-
+  #include &ltDHT.h&gt; // для работы с датчиком Dht22  
+  #include &ltArduinoJson.h&gt;  // для преобразования данных в JSON
+  #include &ltNTPClient.h&gt; // для получения текущего времени по протоколу NTP 
+  #include &ltESP8266WiFi.h&gt; // необходим для работы микроконтроллера esp8266 и подключения к wi-fi
+  #include &ltPubSubClient.h&gt; // для отправки данных на сервер
+  #include &ltWiFiUdp.h&gt; // необходим для подключения по протоколу NTP
+    
+    #define DHTPIN 5
+    #define DHTTYPE DHT22
+    
     DHT dht(DHTPIN, DHTTYPE);
-    d
     // Update these with values suitable for your network.
     const char* ssid = "wifi name";
     const char* password = "wifi password";
-    const char* mqtt_server = "id adress or dns";
+    const char* mqtt_server = "id adress or dns"; 
     const char* mqtt_user = "rabbit username";
     const char* mqtt_pass= "rabbit user password";
-
+    
     const int mq2pin = A0; //the MQ2 analog input pin
-
-
-
+    
+    
+    
     WiFiClient espClient;
     PubSubClient client(espClient);
-
+    
     StaticJsonBuffer<300> JSONbuffer;
     JsonObject& JSONencoder = JSONbuffer.createObject();
-
+    
     WiFiUDP ntpUDP;
     NTPClient timeClient(ntpUDP, "pool.ntp.org");
-
-
-
+    
+    
+    
     void setup_wifi() { // // Подключение к Wi-fi
       WiFi.begin(ssid, password);
       while (WiFi.status() != WL_CONNECTED) {
@@ -62,8 +59,8 @@ MQTP и записываются в очередь через RabbitMQ<br>
       Serial.println("IP address: ");
       Serial.println(WiFi.localIP());
     }
-
-    void reconnect() {  //  подключенние к RabbitMQ
+    
+    void reconnect() {  //  подключенние к RabbitMQ  
       // Loop until we're reconnected
       Serial.println("In reconnect...");
       while (!client.connected()) {
@@ -79,15 +76,15 @@ MQTP и записываются в очередь через RabbitMQ<br>
         }
       }
     }
-
+    
     void setup() {
       pinMode(BUILTIN_LED, OUTPUT);
       Serial.begin(115200);
       setup_wifi();
       client.setServer(mqtt_server, 1883);
-      dht.begin();
+      dht.begin();  
     }
-
+    
     void loop() {
       timeClient.begin();
       timeClient.setTimeOffset(10800);
@@ -95,59 +92,58 @@ MQTP и записываются в очередь через RabbitMQ<br>
       if (!client.connected()) {
         reconnect();
       }
-
+    
       timeClient.update();
-
-
+      
+    
       float humidity = dht.readHumidity();
       // Read temperature as Celsius (the default)
       float temperature = dht.readTemperature();
       // Read temperature as Fahrenheit (isFahrenheit = true)
       float fahrenheit = dht.readTemperature(true);
-
+    
       // Check if any reads failed and exit early (to try again).
       if (isnan(humidity) || isnan(temperature) || isnan(fahrenheit)) {
         Serial.println("Failed to read from DHT sensor!");
         return;
-      }
+      }    
       // Compute heat index in Celsius (isFahreheit = false)
       float hic = dht.computeHeatIndex(temperature, humidity, false);
-
-
+    
+    
       time_t epochTime = timeClient.getEpochTime();
       String formattedTime = timeClient.getFormattedTime();
-
+      
       //Get a time structure
-      struct tm *ptm = gmtime ((time_t *)&epochTime);
-
+      struct tm *ptm = gmtime ((time_t *)&epochTime); 
+    
       int monthDay = ptm->tm_mday;
       int currentMonth = ptm->tm_mon+1;
       int currentYear = ptm->tm_year+1900;
-
+    
       //Print complete date:
-      String currentDate = String(currentYear) + "-" + String(currentMonth) + "-" + String(monthDay) + " " + formattedTime;
-
+      String currentDate = String(currentYear) + "-" + String(currentMonth) + "-" + String(monthDay) + " " + formattedTime;    
+    
       JSONencoder["device"] = "esp8632_dht22";
       JSONencoder["temperature"] = temperature;
       JSONencoder["humidity"] = humidity;
       JSONencoder["heatindex"] = hic;
       JSONencoder["date_create"] = currentDate;
-
+    
       char JSONmessageBuffer[150];
       JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-
+    
       client.publish("dht22", JSONmessageBuffer);
-
+    
       Serial.println(JSONmessageBuffer);
-
-
-
+    
+      
+      
       digitalWrite(BUILTIN_LED, LOW);
       delay(500);
       digitalWrite(BUILTIN_LED, HIGH);  // turn on LED with voltage HIGH
       delay(4500);
     }
-
 </code></pre>
 
 <h2> Smart House API</h2>

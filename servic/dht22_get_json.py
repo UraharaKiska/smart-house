@@ -2,7 +2,7 @@ import pika
 import asyncio
 # import aioamqp
 import time
-from connect_database import database_connect
+from connect_database import *
 import json
 from models import Dht22
 from pydantic import ValidationError
@@ -34,7 +34,7 @@ def on_message_received(ch, method, properties, body):
 
 def rabbitmq_connect(conn):
     CONN = conn
-    rmq_url_connection_str = "amqp://sergey:1234@localhost"
+    rmq_url_connection_str = f"amqp://{RABBIT_USER}:{RABBIT_PASS}@localhost"
     rmq_parameters = pika.URLParameters(rmq_url_connection_str)
     rmq_connection = pika.BlockingConnection(rmq_parameters)
     rmq_channel = rmq_connection.channel()
