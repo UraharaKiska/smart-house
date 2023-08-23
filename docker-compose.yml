@@ -1,0 +1,37 @@
+version: "3.1"
+
+services:
+  django:
+    build: .
+    container_name: django
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - pgdb
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    # environment:
+    #   - RABBITMQ_DEFAULT_USER=sergey
+    #   - RABBITMQ_DEFAULT_PASS=1234
+    ports:
+      - 15674:15764
+
+  pgdb:
+    image: postgres:13.3
+    environment:
+      - POSTGRES_DB=smart_house
+      - POSTGRES_USER=sergey
+      - POSTGRES_PASSWORD=pUp859N228
+    container_name: pgdb
+    volumes:
+      - pgdbdata:/var/lib/postgresql/data/
+    ports:
+      - 5436:5436
+
+volumes:
+  pgdbdata: null
